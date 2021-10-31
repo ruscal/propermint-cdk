@@ -1,18 +1,39 @@
-import * as cdk from '@aws-cdk/core';
-import * as cognito from '@aws-cdk/aws-cognito';
-import * as appsync from '@aws-cdk/aws-appsync';
-import * as ddb from '@aws-cdk/aws-dynamodb';
-import * as lambda from '@aws-cdk/aws-lambda';
+import {
+    CfnOutput,
+    Construct,
+    Duration,
+    Expiration,
+    Stack,
+    StackProps
+} from 'monocdk';
+import {
+    aws_cognito,
+    aws_appsync,
+    aws_dynamodb,
+    aws_lambda,
+    aws_s3,
+    aws_iam,
+    aws_route53,
+    aws_route53_targets,
+    aws_cloudfront
+} from 'monocdk';
+import { DnsValidatedCertificate } from 'monocdk/lib/aws-certificatemanager';
+import { S3EventSource } from 'monocdk/lib/aws-lambda-event-sources';
+import { EventType } from 'monocdk/lib/aws-s3';
 
-export class PropermintCdkStack extends cdk.Stack {
-    constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
+export interface PropermintCdkStackProps extends StackProps {
+    domainName: string;
+}
+
+export class PropermintCdkStack extends Stack {
+    constructor(scope: Construct, id: string, props: PropermintCdkStackProps) {
         super(scope, id, props);
 
-        const userPool = new cognito.UserPool(this, 'ProperMintUserPool', {
+        const userPool = new aws_cognito.UserPool(this, 'ProperMintUserPool', {
             selfSignUpEnabled: true,
-            accountRecovery: cognito.AccountRecovery.PHONE_AND_EMAIL,
+            accountRecovery: aws_cognito.AccountRecovery.PHONE_AND_EMAIL,
             userVerification: {
-                emailStyle: cognito.VerificationEmailStyle.CODE
+                emailStyle: aws_cognito.VerificationEmailStyle.CODE
             },
             autoVerify: {
                 email: true
@@ -25,22 +46,23 @@ export class PropermintCdkStack extends cdk.Stack {
             }
         });
 
-        const api = new appsync.GraphqlApi(this, 'ProperMintApp', {
+        const api = new aws_appsync.GraphqlApi(this, 'ProperMintApp', {
             name: 'ProperMintApp',
             logConfig: {
-                fieldLogLevel: appsync.FieldLogLevel.ALL
+                fieldLogLevel: aws_appsync.FieldLogLevel.ALL
             },
-            schema: appsync.Schema.fromAsset('./graphql/schema.graphql'),
+            schema: aws_appsync.Schema.fromAsset('./graphql/schema.graphql'),
             authorizationConfig: {
                 defaultAuthorization: {
-                    authorizationType: appsync.AuthorizationType.API_KEY,
+                    authorizationType: aws_appsync.AuthorizationType.API_KEY,
                     apiKeyConfig: {
-                        expires: cdk.Expiration.after(cdk.Duration.days(365))
+                        expires: Expiration.after(Duration.days(365))
                     }
                 },
                 additionalAuthorizationModes: [
                     {
-                        authorizationType: appsync.AuthorizationType.USER_POOL,
+                        authorizationType:
+                            aws_appsync.AuthorizationType.USER_POOL,
                         userPoolConfig: {
                             userPool
                         }
@@ -50,11 +72,11 @@ export class PropermintCdkStack extends cdk.Stack {
         });
 
         // Create the function
-        const postLambda = new lambda.Function(this, 'AppSyncPostHandler', {
-            runtime: lambda.Runtime.NODEJS_14_X,
+        const postLambda = new aws_lambda.Function(this, 'AppSyncPostHandler', {
+            runtime: aws_lambda.Runtime.NODEJS_14_X,
             handler: 'main.handler',
-            code: lambda.Code.fromAsset('lambda'),
-            memorySize: 1024
+            code: aws_lambda.Code.fromAsset('lambda'),
+            memorySize: 2048
         });
 
         // Set the new Lambda function as a data source for the AppSync API
@@ -93,12 +115,12 @@ export class PropermintCdkStack extends cdk.Stack {
             fieldName: 'updatePost'
         });
 
-        const postTable = new ddb.Table(this, 'PostsTable', {
+        const postTable = new aws_dynamodb.Table(this, 'PostsTable', {
             tableName: 'posts',
-            billingMode: ddb.BillingMode.PAY_PER_REQUEST,
+            billingMode: aws_dynamodb.BillingMode.PAY_PER_REQUEST,
             partitionKey: {
                 name: 'id',
-                type: ddb.AttributeType.STRING
+                type: aws_dynamodb.AttributeType.STRING
             }
         });
 
@@ -107,7 +129,7 @@ export class PropermintCdkStack extends cdk.Stack {
             indexName: 'postsByUsername',
             partitionKey: {
                 name: 'owner',
-                type: ddb.AttributeType.STRING
+                type: aws_dynamodb.AttributeType.STRING
             }
         });
 
@@ -117,32 +139,247 @@ export class PropermintCdkStack extends cdk.Stack {
         // Create an environment variable that we will use in the function code
         postLambda.addEnvironment('POST_TABLE', postTable.tableName);
 
-        const userPoolClient = new cognito.UserPoolClient(
+        const userPoolClient = new aws_cognito.UserPoolClient(
             this,
             'UserPoolClient',
             {
-                userPool
+                userPool,
+                authFlows: {
+                    adminUserPassword: true,
+                    custom: true,
+                    userSrp: true
+                },
+                supportedIdentityProviders: [
+                    aws_cognito.UserPoolClientIdentityProvider.COGNITO
+                ]
             }
         );
 
-        new cdk.CfnOutput(this, 'GraphQLAPIURL', {
+        // 👇 Identity Pool
+        const identityPool = new aws_cognito.CfnIdentityPool(
+            this,
+            'identity-pool',
+            {
+                identityPoolName: 'my-identity-pool',
+                allowUnauthenticatedIdentities: true,
+                cognitoIdentityProviders: [
+                    {
+                        clientId: userPoolClient.userPoolClientId,
+                        providerName: userPool.userPoolProviderName
+                    }
+                ]
+            }
+        );
+
+        const unauthenticatedRole = new aws_iam.Role(
+            this,
+            'anonymous-group-role',
+            {
+                description: 'Default role for anonymous users',
+                assumedBy: new aws_iam.FederatedPrincipal(
+                    'cognito-identity.amazonaws.com',
+                    {
+                        StringEquals: {
+                            'cognito-identity.amazonaws.com:aud':
+                                identityPool.ref
+                        },
+                        'ForAnyValue:StringLike': {
+                            'cognito-identity.amazonaws.com:amr':
+                                'unauthenticated'
+                        }
+                    },
+                    'sts:AssumeRoleWithWebIdentity'
+                ),
+                managedPolicies: [
+                    aws_iam.ManagedPolicy.fromAwsManagedPolicyName(
+                        'service-role/AWSLambdaBasicExecutionRole'
+                    )
+                ]
+            }
+        );
+
+        const authenticatedRole = new aws_iam.Role(this, 'users-group-role', {
+            description: 'Default role for authenticated users',
+            assumedBy: new aws_iam.FederatedPrincipal(
+                'cognito-identity.amazonaws.com',
+                {
+                    StringEquals: {
+                        'cognito-identity.amazonaws.com:aud': identityPool.ref
+                    },
+                    'ForAnyValue:StringLike': {
+                        'cognito-identity.amazonaws.com:amr': 'authenticated'
+                    }
+                },
+                'sts:AssumeRoleWithWebIdentity'
+            ),
+            managedPolicies: [
+                aws_iam.ManagedPolicy.fromAwsManagedPolicyName(
+                    'service-role/AWSLambdaBasicExecutionRole'
+                )
+            ]
+        });
+        authenticatedRole.addToPolicy(
+            new aws_iam.PolicyStatement({
+                effect: aws_iam.Effect.ALLOW,
+                actions: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject'],
+                resources: ['*']
+            })
+        );
+
+        new aws_cognito.CfnIdentityPoolRoleAttachment(
+            this,
+            'identity-pool-role-attachment',
+            {
+                identityPoolId: identityPool.ref,
+                roles: {
+                    authenticated: authenticatedRole.roleArn,
+                    unauthenticated: unauthenticatedRole.roleArn
+                },
+                roleMappings: {
+                    mapping: {
+                        type: 'Token',
+                        ambiguousRoleResolution: 'AuthenticatedRole',
+                        identityProvider: `cognito-idp.${
+                            Stack.of(this).region
+                        }.amazonaws.com/${userPool.userPoolId}:${
+                            userPoolClient.userPoolClientId
+                        }`
+                    }
+                }
+            }
+        );
+
+        const imageRepositoryBucket = new aws_s3.Bucket(
+            this,
+            'imageRepository',
+            {
+                publicReadAccess: true,
+                cors: [
+                    {
+                        allowedHeaders: ['*'],
+                        allowedMethods: [
+                            aws_s3.HttpMethods.GET,
+                            aws_s3.HttpMethods.HEAD,
+                            aws_s3.HttpMethods.PUT,
+                            aws_s3.HttpMethods.POST,
+                            aws_s3.HttpMethods.DELETE
+                        ],
+                        allowedOrigins: ['*'],
+                        exposedHeaders: [
+                            'x-amz-server-side-encryption',
+                            'x-amz-request-id',
+                            'x-amz-id-2',
+                            'ETag'
+                        ],
+                        maxAge: 3000
+                    }
+                ]
+            }
+        );
+
+        const processImageHandler = new aws_lambda.Function(
+            this,
+            'ProcessImageHandler',
+            {
+                runtime: aws_lambda.Runtime.NODEJS_14_X,
+                handler: 'processImage.handler',
+                code: aws_lambda.Code.fromAsset('lambda'),
+                memorySize: 2048
+            }
+        );
+
+        const s3PutEventSource = new S3EventSource(imageRepositoryBucket, {
+            events: [EventType.OBJECT_CREATED_PUT]
+        });
+
+        processImageHandler.addEventSource(s3PutEventSource);
+        imageRepositoryBucket.grantPut(processImageHandler);
+        imageRepositoryBucket.grantReadWrite(processImageHandler);
+
+        const zone = aws_route53.HostedZone.fromLookup(this, 'Zone', {
+            domainName: props.domainName
+        });
+        const siteDomain = 'm.' + props.domainName;
+        new CfnOutput(this, 'Site', { value: 'https://' + siteDomain });
+
+        // TLS certificate
+        const certificateArn = new DnsValidatedCertificate(
+            this,
+            'SiteCertificate',
+            {
+                domainName: siteDomain,
+                hostedZone: zone,
+                region: 'us-east-1' // Cloudfront only checks this region for certificates.
+            }
+        ).certificateArn;
+        new CfnOutput(this, 'Certificate', { value: certificateArn });
+
+        // CloudFront distribution that provides HTTPS
+        const distribution = new aws_cloudfront.CloudFrontWebDistribution(
+            this,
+            'SiteDistribution',
+            {
+                aliasConfiguration: {
+                    acmCertRef: certificateArn,
+                    names: [siteDomain],
+                    sslMethod: aws_cloudfront.SSLMethod.SNI,
+                    securityPolicy:
+                        aws_cloudfront.SecurityPolicyProtocol.TLS_V1_1_2016
+                },
+                originConfigs: [
+                    {
+                        s3OriginSource: {
+                            s3BucketSource: imageRepositoryBucket
+                        },
+                        behaviors: [
+                            {
+                                compress: true,
+                                isDefaultBehavior: true
+                            }
+                        ]
+                    }
+                ]
+            }
+        );
+        new CfnOutput(this, 'DistributionId', {
+            value: distribution.distributionId
+        });
+
+        // Route53 alias record for the CloudFront distribution
+        new aws_route53.ARecord(this, 'SiteAliasRecord', {
+            recordName: siteDomain,
+            target: aws_route53.RecordTarget.fromAlias(
+                new aws_route53_targets.CloudFrontTarget(distribution)
+            ),
+            zone
+        });
+
+        new CfnOutput(this, 'GraphQLAPIURL', {
             value: api.graphqlUrl
         });
 
-        new cdk.CfnOutput(this, 'AppSyncAPIKey', {
+        new CfnOutput(this, 'AppSyncAPIKey', {
             value: api.apiKey || ''
         });
 
-        new cdk.CfnOutput(this, 'ProjectRegion', {
+        new CfnOutput(this, 'ProjectRegion', {
             value: this.region
         });
 
-        new cdk.CfnOutput(this, 'UserPoolId', {
+        new CfnOutput(this, 'UserPoolId', {
             value: userPool.userPoolId
         });
 
-        new cdk.CfnOutput(this, 'UserPoolClientId', {
+        new CfnOutput(this, 'UserPoolClientId', {
             value: userPoolClient.userPoolClientId
+        });
+
+        new CfnOutput(this, 'IdentityPoolId', {
+            value: identityPool.ref
+        });
+
+        new CfnOutput(this, 'ImageRepositoryBucket', {
+            value: imageRepositoryBucket.bucketName
         });
     }
 }

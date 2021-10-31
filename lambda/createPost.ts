@@ -1,15 +1,17 @@
-const AWS = require('aws-sdk');
-const docClient = new AWS.DynamoDB.DocumentClient();
+import { DynamoDB } from 'aws-sdk';
+import { DocumentClient } from 'aws-sdk/clients/dynamodb';
 import { Post } from './types';
 import { v4 as uuid } from 'uuid';
+
+const docClient = new DynamoDB.DocumentClient();
 
 async function createPost(post: Post, username: string) {
     if (!post.id) {
         post.id = uuid();
     }
     const postData = { ...post, owner: username };
-    const params = {
-        TableName: process.env.POST_TABLE,
+    const params: DocumentClient.PutItemInput = {
+        TableName: process.env.POST_TABLE!,
         Item: postData
     };
     try {

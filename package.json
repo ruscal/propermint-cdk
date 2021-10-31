@@ -9,7 +9,8 @@
         "watch": "tsc -w",
         "test": "jest",
         "cdk": "cdk",
-        "deploy": "npm run build && cdk deploy -O ../propermint/cdk-exports.json"
+        "deploy": "npm run build && cdk deploy -O ../propermint/cdk-exports.json",
+        "destroy": "cdk destroy"
     },
     "devDependencies": {
         "@aws-cdk/assert": "1.127.0",
@@ -22,11 +23,8 @@
         "typescript": "~3.9.7"
     },
     "dependencies": {
-        "@aws-cdk/aws-appsync": "^1.127.0",
-        "@aws-cdk/aws-cognito": "^1.127.0",
-        "@aws-cdk/aws-dynamodb": "^1.127.0",
-        "@aws-cdk/aws-lambda": "^1.127.0",
-        "@aws-cdk/core": "1.127.0",
+        "constructs": "^3.3.161",
+        "monocdk": "^1.128.0",
         "source-map-support": "^0.5.16"
     }
 }

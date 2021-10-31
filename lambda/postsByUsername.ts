@@ -17,7 +17,7 @@ async function postsByUsername(username: string) {
         return data.Items;
     } catch (err) {
         console.log('DynamoDB error: ', err);
-        return null;
+        throw err;
     }
 }
 

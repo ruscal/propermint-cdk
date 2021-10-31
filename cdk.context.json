@@ -1,0 +1,10 @@
+{
+  "hosted-zone:account=259438430521:domainName=propermint.life:region=eu-west-2": {
+    "Id": "/hostedzone/Z05500821YTQ34CAFWG04",
+    "Name": "propermint.life."
+  },
+  "hosted-zone:account=259438430521:domainName=propermint.life:region=us-east-1": {
+    "Id": "/hostedzone/Z05500821YTQ34CAFWG04",
+    "Name": "propermint.life."
+  }
+}

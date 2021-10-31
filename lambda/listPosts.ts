@@ -1,9 +1,11 @@
-const AWS = require('aws-sdk');
-const docClient = new AWS.DynamoDB.DocumentClient();
+import { DynamoDB } from 'aws-sdk';
+import { DocumentClient } from 'aws-sdk/clients/dynamodb';
+
+const docClient = new DynamoDB.DocumentClient();
 
 async function listPosts() {
-    const params = {
-        TableName: process.env.POST_TABLE
+    const params: DocumentClient.ScanInput = {
+        TableName: process.env.POST_TABLE!
     };
     try {
         const data = await docClient.scan(params).promise();
