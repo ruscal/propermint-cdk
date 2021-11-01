@@ -7,8 +7,7 @@ const s3 = new S3({ apiVersion: '2006-03-01' });
 const thumbnailHeight = 250;
 const fullHeight = 1000;
 const ORIGINAL_FILENAME = 'original';
-const THUMBNAIL_FILENAME = 'sm';
-const FULLSIZE_FILENAME = 'lg';
+const imageSizes = [240, 320, 480, 640, 750, 1080];
 
 export async function handler(event: S3Event) {
     await Promise.all(event.Records.map(processImage));
@@ -50,40 +49,53 @@ async function processImage(record: S3EventRecord) {
         const image = sharp(Body as any);
         const metaData = await image.metadata();
 
-        let thumbnail = Body;
-        if (metaData.height && metaData.height > thumbnailHeight) {
-            thumbnail = await sharp(Body as any)
-                .resize(null, thumbnailHeight)
-                .jpeg({ mozjpeg: true })
-                .toBuffer();
-        }
-
-        let fullImage = Body;
-        if (metaData.height && metaData.height > fullHeight) {
-            fullImage = await sharp(Body as any)
-                .resize(null, fullHeight)
-                .jpeg({ mozjpeg: true })
-                .toBuffer();
-        }
-
-        await s3
-            .putObject({
-                Bucket: bucket,
-                Key: `${prefix}${THUMBNAIL_FILENAME}.jpg`,
-                Body: thumbnail
-            })
-            .promise();
-
-        await s3
-            .putObject({
-                Bucket: bucket,
-                Key: `${prefix}${FULLSIZE_FILENAME}.jpg`,
-                Body: fullImage
-            })
-            .promise();
+        await Promise.all(
+            imageSizes.map((width) =>
+                saveImage({
+                    metaData,
+                    imageData: Body as Buffer,
+                    prefix,
+                    bucket,
+                    width
+                })
+            )
+        );
     } catch (ex) {
         console.log(`Process image failed ${JSON.stringify(record.s3)}`, ex);
     }
+}
+
+interface SaveImageProps {
+    imageData: Buffer;
+    metaData: sharp.Metadata;
+    width: number;
+    bucket: string;
+    prefix: string;
+}
+
+async function saveImage({
+    imageData,
+    metaData,
+    width,
+    bucket,
+    prefix
+}: SaveImageProps) {
+    let resizedImage = imageData;
+    if (metaData.width && metaData.width > width) {
+        resizedImage = await sharp(imageData)
+            .resize(width, null)
+            .withMetadata()
+            .jpeg({ mozjpeg: true })
+            .toBuffer();
+    }
+
+    await s3
+        .putObject({
+            Bucket: bucket,
+            Key: `${prefix}${width}.jpg`,
+            Body: resizedImage
+        })
+        .promise();
 }
 
 function getExtension(key: string) {
