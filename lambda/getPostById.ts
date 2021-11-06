@@ -1,15 +1,18 @@
 import { DynamoDB } from 'aws-sdk';
-import { DocumentClient } from 'aws-sdk/clients/dynamodb';
+import { FieldRequest } from './types';
+import { getPost } from './utilities/getPost';
 const docClient = new DynamoDB.DocumentClient();
 
-async function getPostById(postId: string) {
-    const params: DocumentClient.GetItemInput = {
-        TableName: process.env.POST_TABLE!,
-        Key: { id: postId }
-    };
+export interface GetPostByIdRequest {
+    postId: string;
+}
+
+export async function getPostById({
+    arguments: { postId }
+}: FieldRequest<GetPostByIdRequest>) {
     try {
-        const { Item } = await docClient.get(params).promise();
-        return Item;
+        const post = await getPost(docClient, postId);
+        return post;
     } catch (err) {
         console.log('DynamoDB error: ', err);
         throw err;

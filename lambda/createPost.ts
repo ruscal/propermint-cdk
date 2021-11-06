@@ -1,22 +1,41 @@
 import { DynamoDB } from 'aws-sdk';
 import { DocumentClient } from 'aws-sdk/clients/dynamodb';
-import { Post } from './types';
-import { v4 as uuid } from 'uuid';
+import { FieldRequest } from './types';
+import { getChannelUserKey } from './utilities/getChannelUserKey';
+import { getPrimaryKey } from './utilities/getPrimaryKey';
+import { getSortKeyForPost } from './utilities/getSortKey';
 
 const docClient = new DynamoDB.DocumentClient();
 
-async function createPost(post: Post, username: string) {
-    if (!post.id) {
-        post.id = uuid();
-    }
-    const postData = { ...post, owner: username };
+export interface CreatePostRequest {
+    post: {
+        postId: string;
+        channelId: string;
+        title: string;
+        content: string;
+    };
+}
+
+export async function createPost({
+    identity: { username },
+    arguments: { post }
+}: FieldRequest<CreatePostRequest>) {
+    const timestamp = Math.floor(new Date().getTime() / 1000);
+    const item = {
+        ...post,
+        timestamp,
+        author: username,
+        pk: getPrimaryKey(post.channelId),
+        sk: getSortKeyForPost(post.postId, timestamp),
+        channelUser: getChannelUserKey(post.channelId, username)
+    };
     const params: DocumentClient.PutItemInput = {
-        TableName: process.env.POST_TABLE!,
-        Item: postData
+        TableName: process.env.CHANNELS_TABLE!,
+        Item: item
     };
     try {
         await docClient.put(params).promise();
-        return postData;
+        return item;
     } catch (err) {
         console.log('DynamoDB error: ', err);
         return null;

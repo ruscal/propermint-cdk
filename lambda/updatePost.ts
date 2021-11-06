@@ -1,39 +1,64 @@
 import { DynamoDB } from 'aws-sdk';
 import { DocumentClient } from 'aws-sdk/clients/dynamodb';
-import { Post } from './types';
+import { FieldRequest, Post } from './types';
+import { getPost } from './utilities/getPost';
+import { getPrimaryKey } from './utilities/getPrimaryKey';
+import { getSortKeyForPost } from './utilities/getSortKey';
 
 const docClient = new DynamoDB.DocumentClient();
 
-async function updatePost(post: Post, username: string) {
-    let params: DocumentClient.UpdateItemInput = {
-        TableName: process.env.POST_TABLE!,
-        Key: {
-            id: post.id
-        },
-        UpdateExpression: '',
-        ConditionExpression: '#owner = :owner',
-        ExpressionAttributeNames: {
-            '#owner': 'owner'
-        },
-        ExpressionAttributeValues: {
-            ':owner': username
-        },
-        ReturnValues: 'UPDATED_NEW'
+export interface UpdatePostRequest {
+    post: {
+        postId: string;
+        channelId: string;
+        title: string;
+        content: string;
     };
-    let prefix = 'set ';
-    let attributes = Object.keys(post) as (keyof typeof post)[];
-    for (let i = 0; i < attributes.length; i++) {
-        let attribute = attributes[i];
-        if (attribute !== 'id') {
-            params.UpdateExpression +=
-                prefix + '#' + attribute + ' = :' + attribute;
-            params.ExpressionAttributeValues![':' + attribute] =
-                post[attribute];
-            params.ExpressionAttributeNames!['#' + attribute] = attribute;
-            prefix = ', ';
-        }
-    }
+}
+
+export async function updatePost({
+    identity: { username },
+    arguments: { post }
+}: FieldRequest<UpdatePostRequest>) {
     try {
+        const oldPost = await getPost(docClient, post.postId);
+
+        if (!oldPost) {
+            console.log(
+                `Failed to update post, post not found for postId: ${post.postId}`
+            );
+            return null;
+        }
+
+        let params: DocumentClient.UpdateItemInput = {
+            TableName: process.env.CHANNELS_TABLE!,
+            Key: {
+                pk: getPrimaryKey(oldPost.channelId),
+                sk: getSortKeyForPost(oldPost.postId, oldPost.timestamp)
+            },
+            UpdateExpression: '',
+            ExpressionAttributeNames: {
+                '#author': 'author'
+            },
+            ExpressionAttributeValues: {
+                ':author': username
+            },
+            ReturnValues: 'UPDATED_NEW'
+        };
+        let prefix = 'set ';
+        let attributes = Object.keys(post) as (keyof typeof post)[];
+        for (let i = 0; i < attributes.length; i++) {
+            let attribute = attributes[i];
+            if (attribute !== 'postId') {
+                params.UpdateExpression +=
+                    prefix + '#' + attribute + ' = :' + attribute;
+                params.ExpressionAttributeValues![':' + attribute] =
+                    post[attribute];
+                params.ExpressionAttributeNames!['#' + attribute] = attribute;
+                prefix = ', ';
+            }
+        }
+
         await docClient.update(params).promise();
         return post;
     } catch (err) {
