@@ -17,6 +17,7 @@ export interface ImageRepositoryProps {
 
 export class ImageRepository extends Construct {
     imageRepositoryBucket: Bucket;
+    distribution: CloudFrontWebDistribution;
 
     constructor(scope: Construct, id: string, props: ImageRepositoryProps) {
         super(scope, id);
@@ -80,7 +81,7 @@ export class ImageRepository extends Construct {
         ).certificateArn;
         new CfnOutput(this, 'Certificate', { value: certificateArn });
 
-        const distribution = new CloudFrontWebDistribution(
+        this.distribution = new CloudFrontWebDistribution(
             this,
             'SiteDistribution',
             {
@@ -105,19 +106,14 @@ export class ImageRepository extends Construct {
                 ]
             }
         );
-        new CfnOutput(this, 'DistributionId', {
-            value: distribution.distributionId
-        });
 
         // Route53 alias record for the CloudFront distribution
         new ARecord(this, 'SiteAliasRecord', {
             recordName: siteDomain,
-            target: RecordTarget.fromAlias(new CloudFrontTarget(distribution)),
+            target: RecordTarget.fromAlias(new CloudFrontTarget(this.distribution)),
             zone
         });
 
-        new CfnOutput(this, 'ImageRepositoryBucket', {
-            value: this.imageRepositoryBucket.bucketName
-        });
+
     }
 }

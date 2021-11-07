@@ -1,21 +1,24 @@
 # graphql/schema.graphql
 type Post @aws_api_key @aws_cognito_user_pools {
-    id: ID!
+    postId: ID!
+    channelId: ID!
     title: String!
     content: String
     imagePath: String
-    owner: String!
+    author: String!
 }
 
 input PostInput {
-    id: ID
+    postId: ID!
+    channelId: ID!
     title: String!
     content: String
     imagePath: String
 }
 
 input UpdatePostInput {
-    id: ID!
+    postId: ID!
+    channelId: ID!
     title: String
     content: String
     imagePath: String
@@ -23,8 +26,8 @@ input UpdatePostInput {
 
 type Query {
     getPostById(postId: ID!): Post @aws_api_key @aws_cognito_user_pools
-    listPosts: [Post]! @aws_api_key @aws_cognito_user_pools
-    postsByUsername: [Post]! @aws_cognito_user_pools
+    listPosts(channelId: ID!): [Post]! @aws_api_key @aws_cognito_user_pools
+    postsByUsername(channelId: ID!): [Post]! @aws_cognito_user_pools
 }
 
 type Mutation {

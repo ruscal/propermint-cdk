@@ -97,12 +97,5 @@ export class GraphQlStack extends Construct {
             fieldName: 'updatePost'
         });
 
-        new CfnOutput(this, 'GraphQLAPIURL', {
-            value: this.api.graphqlUrl
-        });
-
-        new CfnOutput(this, 'AppSyncAPIKey', {
-            value: this.api.apiKey || ''
-        });
     }
 }

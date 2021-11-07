@@ -15,7 +15,7 @@ export async function getPostsByUser({
 }: FieldRequest<GetPostsByUserRequest>) {
     const params: DocumentClient.QueryInput = {
         TableName: process.env.CHANNELS_TABLE!,
-        IndexName: 'postsByUsername',
+        IndexName: 'postsByUser',
         KeyConditionExpression: 'channelUser = :channelUser',
         ExpressionAttributeValues: {
             ':channelUser': getChannelUserKey(channelId, username)

@@ -30,5 +30,33 @@ export class PropermintCdkStack extends Stack {
         new CfnOutput(this, 'ProjectRegion', {
             value: this.region
         });
+
+        new CfnOutput(this, 'GraphQLAPIURL', {
+            value: graphQlStack.api.graphqlUrl
+        });
+
+        new CfnOutput(this, 'AppSyncAPIKey', {
+            value: graphQlStack.api.apiKey || ''
+        });
+
+        new CfnOutput(this, 'DistributionId', {
+            value: imageRepository.distribution.distributionId
+        });
+
+        new CfnOutput(this, 'ImageRepositoryBucket', {
+            value: imageRepository.imageRepositoryBucket.bucketName
+        });
+
+        new CfnOutput(this, 'UserPoolId', {
+            value: userPoolStack.userPool.userPoolId
+        });
+
+        new CfnOutput(this, 'UserPoolClientId', {
+            value: userPoolStack.userPoolClient.userPoolClientId
+        });
+
+        new CfnOutput(this, 'IdentityPoolId', {
+            value: userPoolStack.identityPool.ref
+        });
     }
 }

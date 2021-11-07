@@ -135,17 +135,5 @@ export class UserPoolStack extends Construct {
                 }
             }
         );
-
-        new CfnOutput(this, 'UserPoolId', {
-            value: this.userPool.userPoolId
-        });
-
-        new CfnOutput(this, 'UserPoolClientId', {
-            value: this.userPoolClient.userPoolClientId
-        });
-
-        new CfnOutput(this, 'IdentityPoolId', {
-            value: this.identityPool.ref
-        });
     }
 }
