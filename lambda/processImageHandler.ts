@@ -4,8 +4,6 @@ import sharp from 'sharp';
 
 const s3 = new S3({ apiVersion: '2006-03-01' });
 
-const thumbnailHeight = 250;
-const fullHeight = 1000;
 const ORIGINAL_FILENAME = 'original';
 const imageSizes = [240, 320, 480, 640, 750, 1080];
 

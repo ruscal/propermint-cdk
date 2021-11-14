@@ -52,7 +52,7 @@ export class ImageRepository extends Construct {
             runtime: Runtime.NODEJS_14_X,
             handler: 'processImageHandler.handler',
             code: Code.fromAsset('lambda'),
-            memorySize: 2048
+            memorySize: 5120
         });
 
         const s3PutEventSource = new S3EventSource(this.imageRepositoryBucket, {
@@ -110,10 +110,10 @@ export class ImageRepository extends Construct {
         // Route53 alias record for the CloudFront distribution
         new ARecord(this, 'SiteAliasRecord', {
             recordName: siteDomain,
-            target: RecordTarget.fromAlias(new CloudFrontTarget(this.distribution)),
+            target: RecordTarget.fromAlias(
+                new CloudFrontTarget(this.distribution)
+            ),
             zone
         });
-
-
     }
 }
