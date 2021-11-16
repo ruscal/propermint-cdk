@@ -1,6 +1,8 @@
 import { CfnOutput, Construct, Stack, StackProps } from 'monocdk';
+import { Queue } from 'monocdk/lib/aws-sqs';
 import { GraphQlStack } from './GraphQlStack';
 import { ImageRepository } from './ImageRespository';
+import { PostProcessor } from './PostProcessor';
 import { ProperMintDB } from './ProperMintDB';
 import { UserPoolStack } from './UserPoolStack';
 
@@ -18,13 +20,19 @@ export class PropermintCdkStack extends Stack {
 
         const properMintDB = new ProperMintDB(this, 'ProperMintDB');
 
-        const graphQlStack = new GraphQlStack(this, 'GraphQlStack', {
-            userPool: userPoolStack.userPool,
+        const imageRepository = new ImageRepository(this, 'ImageRepository', {
+            domainName
+        });
+
+        const postProcessor = new PostProcessor(this, 'PostProcessor', {
+            imageRepositoryBucket: imageRepository.imageRepositoryBucket,
             channelsTable: properMintDB.channelsTable
         });
 
-        const imageRepository = new ImageRepository(this, 'ImageRepository', {
-            domainName
+        const graphQlStack = new GraphQlStack(this, 'GraphQlStack', {
+            userPool: userPoolStack.userPool,
+            channelsTable: properMintDB.channelsTable,
+            processPostQueue: postProcessor.processPostQueue
         });
 
         new CfnOutput(this, 'ProjectRegion', {

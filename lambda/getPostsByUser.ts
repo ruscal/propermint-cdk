@@ -10,9 +10,13 @@ export interface GetPostsByUserRequest {
 }
 
 export async function getPostsByUser({
-    identity: { username },
+    identity,
     arguments: { channelId }
 }: FieldRequest<GetPostsByUserRequest>) {
+    const username = identity?.username;
+    if (!username) {
+        throw new Error('Cannot get posts, invalid user');
+    }
     const params: DocumentClient.QueryInput = {
         TableName: process.env.CHANNELS_TABLE!,
         IndexName: 'postsByUser',

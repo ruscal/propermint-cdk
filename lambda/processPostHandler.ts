@@ -1,35 +1,37 @@
-import { S3Event, S3EventRecord } from 'aws-lambda';
-import { S3 } from 'aws-sdk';
+import { SQSRecord, SQSEvent } from 'aws-lambda';
+import { DynamoDB, S3 } from 'aws-sdk';
 import sharp from 'sharp';
+import { PostStatus } from './types';
+import { getPost } from './utilities/getPost';
 
+const docClient = new DynamoDB.DocumentClient();
 const s3 = new S3({ apiVersion: '2006-03-01' });
 
 const ORIGINAL_FILENAME = 'original';
 const imageSizes = [240, 320, 480, 640, 750, 1080];
 
-export async function handler(event: S3Event) {
-    await Promise.all(event.Records.map(processImage));
+const bucket = process.env.IMAGE_BUCKET!;
+
+export interface ProcessPostRequest {
+    postId: string;
 }
 
-async function processImage(record: S3EventRecord) {
-    const key = record.s3.object.key;
-    const bucket = record.s3.bucket.name;
-    const originalExtension = getExtension(key);
-    const originalFileName = `${ORIGINAL_FILENAME}.${originalExtension}`;
+export async function handler(event: SQSEvent) {
+    await Promise.all(event.Records.map(processPost));
+}
 
-    console.log(
-        `Processing image: ${JSON.stringify({
-            s3: record.s3,
-            originalFileName
-        })}`
-    );
+async function processPost(record: SQSRecord) {
+    const { postId } = JSON.parse(record.body) as ProcessPostRequest;
+    console.log(`Processing image: ${record.body}`);
 
-    if (!originalExtension || !key.endsWith(originalFileName)) {
-        console.log(`Invalid object, aborting. (${key})`);
-        return Promise.resolve();
+    const post = await getPost(docClient, postId);
+    if (!post) {
+        console.log(`Failed to process post ${postId}`);
+        return;
     }
 
-    const prefix = key.substring(0, key.lastIndexOf('/') + 1);
+    const prefix = `public/images/${post.channelId}/${post.postId}/`;
+    const key = `${prefix}${post.imagePath}`;
 
     try {
         const { Body } = await s3
@@ -58,8 +60,18 @@ async function processImage(record: S3EventRecord) {
                 })
             )
         );
+
+        await docClient
+            .put({
+                TableName: process.env.CHANNELS_TABLE!,
+                Item: {
+                    ...post,
+                    status: PostStatus.Live
+                }
+            })
+            .promise();
     } catch (ex) {
-        console.log(`Process image failed ${JSON.stringify(record.s3)}`, ex);
+        console.log(`Process post failed ${JSON.stringify(postId)}`, ex);
     }
 }
 
@@ -94,12 +106,4 @@ async function saveImage({
             Body: resizedImage
         })
         .promise();
-}
-
-function getExtension(key: string) {
-    const lastPeriod = key.lastIndexOf('.');
-    if (lastPeriod) {
-        return key.substring(lastPeriod + 1);
-    }
-    return undefined;
 }

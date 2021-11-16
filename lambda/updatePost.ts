@@ -17,10 +17,14 @@ export interface UpdatePostRequest {
 }
 
 export async function updatePost({
-    identity: { username },
+    identity,
     arguments: { post }
 }: FieldRequest<UpdatePostRequest>) {
     try {
+        const username = identity?.username;
+        if (!username) {
+            throw new Error('Cannot update post, invalid user');
+        }
         const oldPost = await getPost(docClient, post.postId);
 
         if (!oldPost) {

@@ -1,6 +1,8 @@
 import { Construct } from 'monocdk';
 import { AttributeType, BillingMode, Table } from 'monocdk/lib/aws-dynamodb';
 
+export const CHANNELS_TABLE_VAR = 'CHANNELS_TABLE';
+
 // DB Schema
 // interface schema {
 //     channel: {

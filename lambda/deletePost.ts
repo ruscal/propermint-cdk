@@ -12,10 +12,14 @@ export interface DeletePostRequest {
 }
 
 export async function deletePost({
-    identity: { username },
+    identity,
     arguments: { postId }
 }: FieldRequest<DeletePostRequest>) {
     try {
+        const username = identity?.username;
+        if (!username) {
+            throw new Error('Cannot delete post, invalid user');
+        }
         const post = await getPost(docClient, postId);
 
         if (!post) {

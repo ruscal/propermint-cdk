@@ -1,3 +1,9 @@
+export enum PostStatus {
+    Processing = 'processing',
+    Live = 'live',
+    Suppressed = 'suppressed'
+}
+
 export type Post = {
     postId: string;
     channelId: string;
@@ -5,11 +11,13 @@ export type Post = {
     content: string;
     author: string;
     timestamp: number;
+    status: PostStatus;
+    imagePath: string;
 };
 
 export interface FieldRequest<R> {
     arguments: R;
-    identity: {
+    identity?: {
         username: string;
     };
 }

@@ -1,6 +1,6 @@
-import { Bucket, EventType, HttpMethods } from 'monocdk/lib/aws-s3';
+import { Bucket, HttpMethods } from 'monocdk/lib/aws-s3';
 import { Code, Function, Runtime } from 'monocdk/lib/aws-lambda';
-import { S3EventSource } from 'monocdk/lib/aws-lambda-event-sources';
+import { SqsEventSource } from 'monocdk/lib/aws-lambda-event-sources';
 import { ARecord, HostedZone, RecordTarget } from 'monocdk/lib/aws-route53';
 import { CfnOutput, Construct } from 'monocdk';
 import { DnsValidatedCertificate } from 'monocdk/lib/aws-certificatemanager';
@@ -47,21 +47,6 @@ export class ImageRepository extends Construct {
                 }
             ]
         });
-
-        const processImageHandler = new Function(this, 'ProcessImageHandler', {
-            runtime: Runtime.NODEJS_14_X,
-            handler: 'processImageHandler.handler',
-            code: Code.fromAsset('lambda'),
-            memorySize: 5120
-        });
-
-        const s3PutEventSource = new S3EventSource(this.imageRepositoryBucket, {
-            events: [EventType.OBJECT_CREATED_PUT]
-        });
-
-        processImageHandler.addEventSource(s3PutEventSource);
-        this.imageRepositoryBucket.grantPut(processImageHandler);
-        this.imageRepositoryBucket.grantReadWrite(processImageHandler);
 
         const zone = HostedZone.fromLookup(this, 'Zone', {
             domainName: domainName

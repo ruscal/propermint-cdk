@@ -1,4 +1,4 @@
-import { CfnOutput, Construct, Duration, Expiration } from 'monocdk';
+import { Construct, Duration, Expiration } from 'monocdk';
 import {
     AuthorizationType,
     FieldLogLevel,
@@ -8,10 +8,15 @@ import {
 import { IUserPool } from 'monocdk/lib/aws-cognito';
 import { Table } from 'monocdk/lib/aws-dynamodb';
 import { Code, Function, Runtime } from 'monocdk/lib/aws-lambda';
+import { Queue } from 'monocdk/lib/aws-sqs';
+import { CHANNELS_TABLE_VAR } from './ProperMintDB';
+
+const PROCESS_POST_QUEUE_VAR = 'PROCESS_POST_QUEUE';
 
 export interface GraphQlStackProps {
     userPool: IUserPool;
     channelsTable: Table;
+    processPostQueue: Queue;
 }
 
 export class GraphQlStack extends Construct {
@@ -21,7 +26,7 @@ export class GraphQlStack extends Construct {
     constructor(scope: Construct, id: string, props: GraphQlStackProps) {
         super(scope, id);
 
-        const { userPool, channelsTable } = props;
+        const { userPool, channelsTable, processPostQueue } = props;
         this.api = new GraphqlApi(this, 'ProperMintApp', {
             name: 'ProperMintApp',
             logConfig: {
@@ -50,17 +55,16 @@ export class GraphQlStack extends Construct {
             runtime: Runtime.NODEJS_14_X,
             handler: 'graphQlHandler.handler',
             code: Code.fromAsset('lambda'),
-            memorySize: 2048
+            memorySize: 2048,
+            environment: {
+                [PROCESS_POST_QUEUE_VAR]: processPostQueue.queueUrl,
+                [CHANNELS_TABLE_VAR]: channelsTable.tableName
+            }
         });
 
-        // Enable the Lambda function to access the DynamoDB table (using IAM)
         channelsTable.grantFullAccess(this.graphQlHandler);
+        processPostQueue.grantSendMessages(this.graphQlHandler);
 
-        // Create an environment variable that we will use in the function code
-        this.graphQlHandler.addEnvironment(
-            'CHANNELS_TABLE',
-            channelsTable.tableName
-        );
 
         const lambdaDs = this.api.addLambdaDataSource(
             'GraphQlDataSource',
@@ -96,6 +100,5 @@ export class GraphQlStack extends Construct {
             typeName: 'Mutation',
             fieldName: 'updatePost'
         });
-
     }
 }

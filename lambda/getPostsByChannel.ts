@@ -1,5 +1,5 @@
 import { DynamoDB } from 'aws-sdk';
-import { FieldRequest } from './types';
+import { FieldRequest, PostStatus } from './types';
 import { getPrimaryKey } from './utilities/getPrimaryKey';
 
 const docClient = new DynamoDB.DocumentClient();
@@ -9,22 +9,33 @@ export interface GetPostsByChannelRequest {
 }
 
 export async function getPostsByChannel({
-    arguments: { channelId }
+    arguments: { channelId },
+    identity
 }: FieldRequest<GetPostsByChannelRequest>) {
+    const username = identity?.username;
     try {
         const data = await docClient
             .query({
                 TableName: process.env.CHANNELS_TABLE!,
                 KeyConditionExpression: `pk = :pk`,
-                FilterExpression: `attribute_exists(postId)`,
+                FilterExpression: `attribute_exists(postId) and (#status = :statusLive or (#status = :statusProcessing and author = :author))`,
                 ExpressionAttributeValues: {
-                    ':pk': getPrimaryKey(channelId)
+                    ':pk': getPrimaryKey(channelId),
+                    ':statusLive': PostStatus.Live,
+                    ':statusProcessing': PostStatus.Processing,
+                    ':author': username
+                },
+                ExpressionAttributeNames: {
+                    '#status': 'status'
                 }
             })
             .promise();
         return data.Items;
     } catch (err) {
-        console.log('DynamoDB error: ', err);
+        console.log(
+            `DynamoDB error (${process.env.CHANNELS_TABLE}::${username}): `,
+            err
+        );
         return null;
     }
 }
