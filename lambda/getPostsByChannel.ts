@@ -23,7 +23,7 @@ export async function getPostsByChannel({
                     ':pk': getPrimaryKey(channelId),
                     ':statusLive': PostStatus.Live,
                     ':statusProcessing': PostStatus.Processing,
-                    ':author': username
+                    ':author': username || null
                 },
                 ExpressionAttributeNames: {
                     '#status': 'status'
