@@ -7,6 +7,10 @@ type Post @aws_api_key @aws_cognito_user_pools {
     imagePath: String
     author: String!
     status: String!
+    totalLikes: Int!
+    topLikes: [String]!
+    totalComments: Int!
+    topComments: [Comment]!
 }
 
 input PostInput {
@@ -25,6 +29,24 @@ input UpdatePostInput {
     imagePath: String
 }
 
+type Comment @aws_api_key @aws_cognito_user_pools {
+    commentId: ID!
+    channelId: ID!
+    postId: ID!
+    comment: String!
+    author: String!
+    status: String!
+    totalLikes: Int!
+    topLikes: [String]!
+}
+
+input CommentInput {
+    commentId: ID!
+    postId: ID!
+    channelId: ID!
+    comment: String!
+}
+
 type Query {
     getPostById(postId: ID!): Post @aws_api_key @aws_cognito_user_pools
     listPosts(channelId: ID!): [Post]! @aws_api_key @aws_cognito_user_pools
@@ -35,6 +57,12 @@ type Mutation {
     createPost(post: PostInput!): Post! @aws_cognito_user_pools
     deletePost(postId: ID!): ID @aws_cognito_user_pools
     updatePost(post: UpdatePostInput!): Post @aws_cognito_user_pools
+    createComment(comment: CommentInput!): Comment! @aws_cognito_user_pools
+    deleteComment(commentId: ID!): Comment! @aws_cognito_user_pools
+    likePost(postId: ID!): ID! @aws_cognito_user_pools
+    unlikePost(postId: ID!): ID! @aws_cognito_user_pools
+    likeComment(commentId: ID!): ID! @aws_cognito_user_pools
+    unlikeComment(commentId: ID!): ID! @aws_cognito_user_pools
 }
 
 type Subscription {

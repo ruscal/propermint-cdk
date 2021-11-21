@@ -1,6 +1,6 @@
 import { DynamoDB } from 'aws-sdk';
 import { FieldRequest } from './types';
-import { getPost } from './utilities/getPost';
+import { getPost } from './utilities/channelsClient';
 const docClient = new DynamoDB.DocumentClient();
 
 export interface GetPostByIdRequest {

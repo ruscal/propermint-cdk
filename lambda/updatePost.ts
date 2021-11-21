@@ -1,9 +1,6 @@
 import { DynamoDB } from 'aws-sdk';
-import { DocumentClient } from 'aws-sdk/clients/dynamodb';
-import { FieldRequest, Post } from './types';
-import { getPost } from './utilities/getPost';
-import { getPrimaryKey } from './utilities/getPrimaryKey';
-import { getSortKeyForPost } from './utilities/getSortKey';
+import { FieldRequest } from './types';
+import { getPost } from './utilities/channelsClient';
 
 const docClient = new DynamoDB.DocumentClient();
 
@@ -34,36 +31,6 @@ export async function updatePost({
             return null;
         }
 
-        let params: DocumentClient.UpdateItemInput = {
-            TableName: process.env.CHANNELS_TABLE!,
-            Key: {
-                pk: getPrimaryKey(oldPost.channelId),
-                sk: getSortKeyForPost(oldPost.postId, oldPost.timestamp)
-            },
-            UpdateExpression: '',
-            ExpressionAttributeNames: {
-                '#author': 'author'
-            },
-            ExpressionAttributeValues: {
-                ':author': username
-            },
-            ReturnValues: 'UPDATED_NEW'
-        };
-        let prefix = 'set ';
-        let attributes = Object.keys(post) as (keyof typeof post)[];
-        for (let i = 0; i < attributes.length; i++) {
-            let attribute = attributes[i];
-            if (attribute !== 'postId') {
-                params.UpdateExpression +=
-                    prefix + '#' + attribute + ' = :' + attribute;
-                params.ExpressionAttributeValues![':' + attribute] =
-                    post[attribute];
-                params.ExpressionAttributeNames!['#' + attribute] = attribute;
-                prefix = ', ';
-            }
-        }
-
-        await docClient.update(params).promise();
         return post;
     } catch (err) {
         console.log('DynamoDB error: ', err);

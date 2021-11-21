@@ -1,7 +1,7 @@
 import { DynamoDB } from 'aws-sdk';
 import { DocumentClient } from 'aws-sdk/clients/dynamodb';
 import { FieldRequest } from './types';
-import { getChannelUserKey } from './utilities/getChannelUserKey';
+import { getChannelUserKey } from './utilities/getPrimaryKey';
 
 const docClient = new DynamoDB.DocumentClient();
 
@@ -23,7 +23,8 @@ export async function getPostsByUser({
         KeyConditionExpression: 'channelUser = :channelUser',
         ExpressionAttributeValues: {
             ':channelUser': getChannelUserKey(channelId, username)
-        }
+        },
+        ScanIndexForward: false
     };
 
     try {

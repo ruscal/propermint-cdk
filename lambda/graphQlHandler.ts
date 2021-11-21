@@ -8,6 +8,11 @@ import {
     getPostsByChannel,
     GetPostsByChannelRequest
 } from './getPostsByChannel';
+import { createComment, CreateCommentRequest } from './createComment';
+import { likePost, LikePostRequest } from './likePost';
+import { likeComment, LikeCommentRequest } from './likeComment';
+import { unlikePost, UnlikePostRequest } from './unlikePost';
+import { unlikeComment, UnlikeCommentRequest } from './unlikeComment';
 
 export const handler = async (event: AppSyncEvent) => {
     switch (event.info.fieldName) {
@@ -40,6 +45,34 @@ export const handler = async (event: AppSyncEvent) => {
             const getPostsByUserRequest =
                 event as FieldRequest<GetPostsByUserRequest>;
             return await getPostsByUser(getPostsByUserRequest);
+        }
+        case 'createComment': {
+            // TODO: type guard / validate
+            const createCommentRequest =
+                event as FieldRequest<CreateCommentRequest>;
+            return await createComment(createCommentRequest);
+        }
+        case 'likePost': {
+            // TODO: type guard / validate
+            const likePostRequest = event as FieldRequest<LikePostRequest>;
+            return await likePost(likePostRequest);
+        }
+        case 'likeComment': {
+            // TODO: type guard / validate
+            const likeCommentRequest =
+                event as FieldRequest<LikeCommentRequest>;
+            return await likeComment(likeCommentRequest);
+        }
+        case 'unlikePost': {
+            // TODO: type guard / validate
+            const unlikePostRequest = event as FieldRequest<UnlikePostRequest>;
+            return await unlikePost(unlikePostRequest);
+        }
+        case 'unlikeComment': {
+            // TODO: type guard / validate
+            const unlikeCommentRequest =
+                event as FieldRequest<UnlikeCommentRequest>;
+            return await unlikeComment(unlikeCommentRequest);
         }
         default:
             return null;

@@ -2,7 +2,7 @@ import { SQSRecord, SQSEvent } from 'aws-lambda';
 import { DynamoDB, S3 } from 'aws-sdk';
 import sharp from 'sharp';
 import { PostStatus } from './types';
-import { getPost } from './utilities/getPost';
+import { getPost } from './utilities/channelsClient';
 
 const docClient = new DynamoDB.DocumentClient();
 const s3 = new S3({ apiVersion: '2006-03-01' });

@@ -9,13 +9,14 @@ import { IUserPool } from 'monocdk/lib/aws-cognito';
 import { Table } from 'monocdk/lib/aws-dynamodb';
 import { Code, Function, Runtime } from 'monocdk/lib/aws-lambda';
 import { Queue } from 'monocdk/lib/aws-sqs';
-import { CHANNELS_TABLE_VAR } from './ProperMintDB';
+import { CHANNELS_TABLE_VAR, REACTIONS_TABLE_VAR } from './ProperMintDB';
 
 const PROCESS_POST_QUEUE_VAR = 'PROCESS_POST_QUEUE';
 
 export interface GraphQlStackProps {
     userPool: IUserPool;
     channelsTable: Table;
+    reactionsTable: Table;
     processPostQueue: Queue;
 }
 
@@ -26,7 +27,8 @@ export class GraphQlStack extends Construct {
     constructor(scope: Construct, id: string, props: GraphQlStackProps) {
         super(scope, id);
 
-        const { userPool, channelsTable, processPostQueue } = props;
+        const { userPool, channelsTable, reactionsTable, processPostQueue } =
+            props;
         this.api = new GraphqlApi(this, 'ProperMintApp', {
             name: 'ProperMintApp',
             logConfig: {
@@ -58,13 +60,14 @@ export class GraphQlStack extends Construct {
             memorySize: 2048,
             environment: {
                 [PROCESS_POST_QUEUE_VAR]: processPostQueue.queueUrl,
-                [CHANNELS_TABLE_VAR]: channelsTable.tableName
+                [CHANNELS_TABLE_VAR]: channelsTable.tableName,
+                [REACTIONS_TABLE_VAR]: reactionsTable.tableName
             }
         });
 
         channelsTable.grantFullAccess(this.graphQlHandler);
+        reactionsTable.grantFullAccess(this.graphQlHandler);
         processPostQueue.grantSendMessages(this.graphQlHandler);
-
 
         const lambdaDs = this.api.addLambdaDataSource(
             'GraphQlDataSource',
@@ -99,6 +102,36 @@ export class GraphQlStack extends Construct {
         lambdaDs.createResolver({
             typeName: 'Mutation',
             fieldName: 'updatePost'
+        });
+
+        lambdaDs.createResolver({
+            typeName: 'Mutation',
+            fieldName: 'createComment'
+        });
+
+        lambdaDs.createResolver({
+            typeName: 'Mutation',
+            fieldName: 'deleteComment'
+        });
+
+        lambdaDs.createResolver({
+            typeName: 'Mutation',
+            fieldName: 'likePost'
+        });
+
+        lambdaDs.createResolver({
+            typeName: 'Mutation',
+            fieldName: 'unlikePost'
+        });
+
+        lambdaDs.createResolver({
+            typeName: 'Mutation',
+            fieldName: 'likeComment'
+        });
+
+        lambdaDs.createResolver({
+            typeName: 'Mutation',
+            fieldName: 'unlikeComment'
         });
     }
 }

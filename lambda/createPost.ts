@@ -1,9 +1,11 @@
 import { DynamoDB, SQS } from 'aws-sdk';
 import { DocumentClient } from 'aws-sdk/clients/dynamodb';
 import { FieldRequest, PostStatus } from './types';
-import { getChannelUserKey } from './utilities/getChannelUserKey';
-import { getPrimaryKey } from './utilities/getPrimaryKey';
-import { getSortKeyForPost } from './utilities/getSortKey';
+import {
+    getChannelPrimaryKey,
+    getChannelUserKey
+} from './utilities/getPrimaryKey';
+import { getPostSortKey } from './utilities/getSortKey';
 
 const docClient = new DynamoDB.DocumentClient();
 const processPostQueue = process.env.PROCESS_POST_QUEUE!;
@@ -34,8 +36,12 @@ export async function createPost({
         timestamp,
         author: username,
         status: PostStatus.Processing,
-        pk: getPrimaryKey(post.channelId),
-        sk: getSortKeyForPost(post.postId, timestamp),
+        totalComments: 0,
+        totalLikes: 0,
+        topComments: [],
+        topLikes: [],
+        pk: getChannelPrimaryKey(post.channelId),
+        sk: getPostSortKey(post.postId, timestamp),
         channelUser: getChannelUserKey(post.channelId, username)
     };
     const params: DocumentClient.PutItemInput = {

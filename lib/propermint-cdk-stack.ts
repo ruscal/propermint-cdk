@@ -26,12 +26,14 @@ export class PropermintCdkStack extends Stack {
 
         const postProcessor = new PostProcessor(this, 'PostProcessor', {
             imageRepositoryBucket: imageRepository.imageRepositoryBucket,
-            channelsTable: properMintDB.channelsTable
+            channelsTable: properMintDB.channelsTable,
+            reactionsTable: properMintDB.reactionsTable
         });
 
         const graphQlStack = new GraphQlStack(this, 'GraphQlStack', {
             userPool: userPoolStack.userPool,
             channelsTable: properMintDB.channelsTable,
+            reactionsTable: properMintDB.reactionsTable,
             processPostQueue: postProcessor.processPostQueue
         });
 

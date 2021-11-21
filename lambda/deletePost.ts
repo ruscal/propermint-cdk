@@ -1,9 +1,9 @@
 import { DynamoDB } from 'aws-sdk';
 import { DocumentClient } from 'aws-sdk/clients/dynamodb';
 import { FieldRequest, Post } from './types';
-import { getPost } from './utilities/getPost';
-import { getPrimaryKey } from './utilities/getPrimaryKey';
-import { getSortKeyForPost as getPostSortKey } from './utilities/getSortKey';
+import { getPost } from './utilities/channelsClient';
+import { getChannelPrimaryKey } from './utilities/getPrimaryKey';
+import { getPostSortKey as getPostSortKey } from './utilities/getSortKey';
 
 const docClient = new DynamoDB.DocumentClient();
 
@@ -32,7 +32,7 @@ export async function deletePost({
         const params: DocumentClient.DeleteItemInput = {
             TableName: process.env.CHANNELS_TABLE!,
             Key: {
-                pk: getPrimaryKey(post.channelId),
+                pk: getChannelPrimaryKey(post.channelId),
                 sk: getPostSortKey(post.postId, post.timestamp)
             }
         };
